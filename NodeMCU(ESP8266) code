@@ -1,0 +1,70 @@
+#include <ESP8266WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <Servo.h>
+
+const char* ssid = "Vishwjeet_Singh_5G";
+const char* password = "Visu@2002";
+
+Servo doorServo;
+const int greenLED = D1;
+const int redLED = D2;
+const int buzzer = D3;
+
+String correctPassword = "visu@1234"; // Predefined password
+String inputPassword = "";
+
+AsyncWebServer server(80);
+
+void setup() {
+  // Initialize hardware
+  doorServo.attach(D5);
+  doorServo.write(0); // Initial lock position
+  pinMode(greenLED, OUTPUT);
+  pinMode(redLED, OUTPUT);
+  pinMode(buzzer, OUTPUT);
+
+  // Start WiFi
+  Serial.begin(9600);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
+    // put your setup code here, to run once:
+  Serial.println();
+  Serial.println("NodeMCU is Connected!");
+  Serial.println(WiFi.localIP());
+
+  // Web server routes
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html",
+      "<form action='/unlock' method='GET'>"
+      "Enter Password: <input type='password' name='pass'><br>"
+      "<input type='submit' value='Submit'>"
+      "</form>");
+  });
+
+  server.on("/unlock", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("pass")) {
+      inputPassword = request->getParam("pass")->value();
+      if (inputPassword == correctPassword) {
+        digitalWrite(greenLED, HIGH);
+        digitalWrite(redLED, LOW);
+        doorServo.write(90); // Unlock
+        request->send(200, "text/html", "Door Unlocked! <a href='/'>Go Back</a>");
+      } else {
+        digitalWrite(redLED, HIGH);
+        digitalWrite(greenLED, LOW);
+        tone(buzzer, 1000, 1000); // Buzzer on
+        request->send(200, "text/html", "Incorrect Password! <a href='/'>Try Again</a>");
+      }
+    } else {
+      request->send(400, "text/html", "No Password Entered");
+    }
+  });
+
+  server.begin();
+}
+
+void loop() {
+  // Main loop not required for this setup
+}
